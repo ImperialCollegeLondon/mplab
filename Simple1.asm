@@ -8,10 +8,21 @@
 	
 start
 	
-	movlw	0xff		    ; all bits in
-	movwf	TRISD, A	    ; Port D Direction Register
-	bsf	PADCFG1,RDPU, A	    ; Turn on pull-ups for Port D
+	;movlw	0xff		    ; all bits in
+	;movwf	TRISD, A	    ; Port D Direction Register
+	;bsf	PADCFG1, RDPU, A	    ; Turn on pull-ups for Port D
+	;Setting port D as outup only
+	movlw 	0x0
+	movwf	TRISD, ACCESS	    ; Port D all outputs
 	
+	clrf	TRISC
+	clrf	TRISH
+	
+	banksel PADCFG1 ; PADCFG1 is not in Access Bank!! 
+	bsf	PADCFG1, REPU, BANKED ; PortE pull-ups on 
+	movlb	0x00 ; set BSR back to Bank 0 
+	setf	TRISE ; Tri-state PortE
+
 	movlw	0x00
 	movwf	0x20, ACCESS
 	
@@ -19,27 +30,21 @@ start
 	movwf	0x21, ACCESS
 	
 	movlw	0x04
-	movwf	0x31, ACCESS ; two stored for the delay itself
-	movwf	0x30, ACCESS ; two stored to update the loop counter
+	movwf	0x31, ACCESS ; num stored for the delay itself
+	movwf	0x30, ACCESS ; num stored to update the loop counter
 	
-	;movlw	0x02
-	;movwf	0x31, ACCESS
+	movlw	0x01
+	movwf	PORTD, ACCESS
 	
-
+	;call	write1
+	call	read1
 	
-	movlw 	0x0
-	movwf	TRISC, ACCESS	    ; Port C all outputs
-	bra 	test
-loop	movff 	0x06, PORTC
-	call	delay
-	incf 	0x06, W, ACCESS
+	;call	write2
+	;call	read2
 	
-test	movwf	0x06, ACCESS	     ; Test for end of loop condition
-;	movlw 	0x63
-	movf	PORTD, W, ACCESS    ;
-	cpfsgt 	0x06, ACCESS
-	bra 	loop		    ; Not yet finished goto start of loop again
-	goto 	0x0		    ; Re-run program from start
+endprogram
+	nop
+	bra endprogram
 	
 delay	call	sdelay
 	decfsz	0x31 ; decrement until zero 
@@ -57,6 +62,50 @@ sdelay	call	ssdelay
 	
 ssdelay decfsz	0x20 ; decrement until zero 
 	bra	ssdelay
+	return
+	
+write1	movlw	.17
+	movwf	PORTD, ACCESS ; OE1 high, OE2 high, rest low
+	clrf	TRISE
+	movlw	.3 ;  just a number to write to 1
+	movwf	PORTE, ACCESS
+	call	sdelay
+	movlw	.19 ; OE1 high, OE2 high, Clock1 high
+	movwf	PORTD, ACCESS
+	call	sdelay
+	setf	TRISE
+	
+	return
+	
+read1	movlw	.16
+	movwf	PORTD, ACCESS ; OE2 high, rest low
+	setf	TRISE
+	movf	PORTE, W
+	movwf	PORTH
+	call	sdelay
+	
+write2	movlw	.17
+	movwf	PORTD, ACCESS ; OE1 high, OE2 high, rest low
+	clrf	TRISE
+	movlw	.13 ;  just a number to write to 2
+	movwf	PORTE, ACCESS
+	call	sdelay
+	movlw	.25
+	movwf	PORTD, ACCESS ; OE1 high, OE2 high, clock2 high
+	call	sdelay
+	movlw	.16
+	movwf	PORTD, ACCESS ; OE2 high, rest low
+	setf	TRISE
+	
+	return
+	
+read2	movlw	.1
+	movwf	PORTD, ACCESS ; OE1 high, rest low
+	setf	TRISE
+	movf	PORTE, W
+	movwf	PORTC
+	call	sdelay
+	
 	return
 	
 	end
