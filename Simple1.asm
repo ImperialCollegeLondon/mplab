@@ -35,7 +35,7 @@ endprogram
 delay	call	sdelay
 	decfsz	0x31 ; decrement until zero 
 	bra	delay
-	movff	0x30, 0x31
+	movff	0x30, 0x31.
 	
 	return
 	
