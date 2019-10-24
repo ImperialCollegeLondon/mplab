@@ -15,6 +15,7 @@
       <itemPath>config.asm</itemPath>
       <itemPath>UART.asm</itemPath>
       <itemPath>LCD.asm</itemPath>
+      <itemPath>ADC.asm</itemPath>
       <itemPath>Keyboard.asm</itemPath>
       <itemPath>Simple1.asm</itemPath>
     </logicalFolder>

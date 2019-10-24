@@ -1,6 +1,6 @@
 #include p18f87k22.inc
 
-    global  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Move_Cursor, LCD_Send_Byte_I, LCD_Second_String
+    global  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Move_Cursor, LCD_Send_Byte_I, LCD_Second_String, LCD_Write_Hex, LCD_First_String
 
 acs0    udata_acs   ; named variables in access ram
 LCD_cnt_l   res 1   ; reserve 1 byte for variable LCD_cnt_l
@@ -8,6 +8,9 @@ LCD_cnt_h   res 1   ; reserve 1 byte for variable LCD_cnt_h
 LCD_cnt_ms  res 1   ; reserve 1 byte for ms counter
 LCD_tmp	    res 1   ; reserve 1 byte for temporary use
 LCD_counter res 1   ; reserve 1 byte for counting through nessage
+
+acs_ovr	access_ovr
+LCD_hex_tmp res 1   ; reserve 1 byte for variable LCD_hex_tmp	
 
 	constant    LCD_E=5	; LCD enable bit
     	constant    LCD_RS=4	; LCD register select bit
@@ -46,6 +49,23 @@ LCD_Setup
 	call	LCD_delay_x4us
 	return
 
+LCD_Write_Hex	    ; Writes byte stored in W as hex
+	movwf	LCD_hex_tmp
+	swapf	LCD_hex_tmp,W	; high nibble first
+	call	LCD_Hex_Nib
+	movf	LCD_hex_tmp,W	; then low nibble
+LCD_Hex_Nib	    ; writes low nibble as hex character
+	andlw	0x0F
+	movwf	LCD_tmp
+	movlw	0x0A
+	cpfslt	LCD_tmp
+	addlw	0x07	; number is greater than 9 
+	addlw	0x26
+	addwf	LCD_tmp,W
+	call	LCD_Send_Byte_D ; write out ascii
+	
+	return
+	
 LCD_Write_Message	    ; Message stored at FSR2, length stored in W
 	movwf   LCD_counter
 LCD_Loop_message
@@ -92,7 +112,7 @@ LCD_Clear
 	return
 	
 LCD_Move_Cursor
-	movlw	b'00010100'	; display clear
+	movlw	b'00010100'	; 
 	call	LCD_Send_Byte_I
 	movlw	.2		; wait 2ms
 	return
@@ -143,6 +163,12 @@ lcdlp1	decf 	LCD_cnt_l,F	; no carry when 0x00 -> 0xff
 	subwfb 	LCD_cnt_h,F	; no carry when 0x00 -> 0xff
 	bc 	lcdlp1		; carry, then loop again
 	return			; carry reset so return
+
+LCD_First_String
+	movlw	b'10000000'
+	call	LCD_Send_Byte_I
+	call	LCD_delay_ms
+	return
 	
 LCD_Second_String
 	movlw	b'11000000'

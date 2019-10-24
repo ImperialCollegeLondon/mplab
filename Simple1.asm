@@ -1,7 +1,13 @@
 	#include p18f87k22.inc
 
 	extern	UART_Setup, UART_Transmit_Message  ; external UART subroutines
-	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String    ; external LCD subroutines
+	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String, LCD_First_String    ; external LCD subroutines
+
+	extern	UART_Setup, UART_Transmit_Message   ; external UART subroutines
+	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
+	extern	LCD_Write_Hex			    ; external LCD subroutines
+	extern  ADC_Setup, ADC_Read		    ; external ADC routines
+
 	
 acs0	udata_acs   ; reserve data space in access ram
 counter	    res 1   ; reserve one byte for a counter variable
@@ -30,6 +36,7 @@ setup	bcf	EECON1, CFGS	; point to Flash program memory
 	bsf	EECON1, EEPGD 	; access Flash program memory
 	call	UART_Setup	; setup UART
 	call	LCD_Setup	; setup LCD
+	call	ADC_Setup	; setup ADC
 	goto	start
 	
 	; ******* Main programme ****************************************
@@ -61,23 +68,34 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	decfsz	counter		; count down to zero
 	bra	loop2		; keep going until finished
 		
-	movlw	myTable_l	; output message to LCD (leave out "\n")
-	lfsr	FSR2, myArray
-	call	LCD_Write_Message
+	;movlw	myTable_l	; output message to LCD (leave out "\n")
+	;lfsr	FSR2, myArray
+	;call	LCD_Write_Message
 	
-	movlw	myTable_l	; output message to UART
-	lfsr	FSR2, myArray
-	call	UART_Transmit_Message
+	;movlw	myTable_l	; output message to UART
+	;lfsr	FSR2, myArray
+	;call	UART_Transmit_Message
 	;call	LCD_Move_Cursor
-	call	LCD_Second_String
+	;call	LCD_Second_String
 	
-	movlw	myTable_2	; output message to LCD (leave out "\n")
-	lfsr	FSR2, myArray2
-	call	LCD_Write_Message
+	;movlw	myTable_2	; output message to LCD (leave out "\n")
+	;lfsr	FSR2, myArray2
+	;call	LCD_Write_Message
 	
 	;call	LCD_Clear
 
-	goto	$		; goto current line in code
+	;goto	$		; goto current line in code
+	
+measure_loop
+	call	ADC_Read
+	movf	ADRESH,W
+	call	LCD_Write_Hex
+	movf	ADRESL,W
+	call	LCD_Write_Hex
+	call	delay
+	call	LCD_First_String
+	;call	LCD_Clear
+	goto	measure_loop		; goto current line in code
 
 	; a delay subroutine if you need one, times around loop in delay_count
 delay	decfsz	delay_count	; decrement until zero
