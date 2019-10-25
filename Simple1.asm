@@ -12,6 +12,20 @@
 acs0	udata_acs   ; reserve data space in access ram
 counter	    res 1   ; reserve one byte for a counter variable
 delay_count res 1   ; reserve one byte for counter in the delay routine
+ 
+acs_ovr	access_ovr
+k1	res 1
+k2	res 1
+H1	res 1
+L1	res 1
+H2	res 1
+L2	res 1
+in1	res 1
+in2	res 1
+CB	res 1
+x8_16_1	res 1
+x8_16_2	res 1
+x8_16_3	res 1
 
 tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
 myArray res 0x80    ; reserve 128 bytes for message data
@@ -37,6 +51,13 @@ setup	bcf	EECON1, CFGS	; point to Flash program memory
 	call	UART_Setup	; setup UART
 	call	LCD_Setup	; setup LCD
 	call	ADC_Setup	; setup ADC
+	movlw	0x41
+	movwf	k1, A
+	movlw	0x8A
+	movwf	k2, A
+	movlw	0x00
+	movwf	CB, A
+	
 	goto	start
 	
 	; ******* Main programme ****************************************
@@ -101,5 +122,31 @@ measure_loop
 delay	decfsz	delay_count	; decrement until zero
 	bra delay
 	return
+	
+	
+x8_by_16
+	mulwf	in1
+	movff	PRODH, H1
+	movff	PRODL, L1
+	
+	mulwf	in2
+	movff	PRODH, H2
+	movff	PRODL, L2  
+	
+	movf	L1, W
+	addwf	L2, 1, 0
+	movff	L2, x8_16_1
+	
+	movf	H1, W
+	addwfc	H2, 1, 0
+	movff	H2, x8_16_2
+	
+	movlw	0x00
+	addwfc	CB, 1, 0
+	movff	CB, x8_16_3
+	
+	return
 
+	
+	
 	end
