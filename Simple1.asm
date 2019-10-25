@@ -106,17 +106,25 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	;call	LCD_Clear
 
 	;goto	$		; goto current line in code
+
 	
-measure_loop
-	call	ADC_Read
-	movf	ADRESH,W
-	call	LCD_Write_Hex
-	movf	ADRESL,W
-	call	LCD_Write_Hex
-	call	delay
-	call	LCD_First_String
-	;call	LCD_Clear
-	goto	measure_loop		; goto current line in code
+	movlw	0x17
+	movwf	in1
+	movlw	0x03
+	movwf	in2
+	movlw	0x56
+	call	x8_by_16
+	
+	
+;measure_loop
+	;call	ADC_Read
+	;movf	ADRESH,W
+	;call	LCD_Write_Hex
+	;movf	ADRESL,W
+	;call	LCD_Write_Hex
+	;call	delay
+	;call	LCD_First_String
+	;goto	measure_loop		; goto current line in code
 
 	; a delay subroutine if you need one, times around loop in delay_count
 delay	decfsz	delay_count	; decrement until zero
@@ -133,17 +141,16 @@ x8_by_16
 	movff	PRODH, H2
 	movff	PRODL, L2  
 	
-	movf	L1, W
-	addwf	L2, 1, 0
-	movff	L2, x8_16_1
+
+	movff	L1, x8_16_1
 	
 	movf	H1, W
-	addwfc	H2, 1, 0
-	movff	H2, x8_16_2
+	addwf	L2, 1, 0
+	movff	L2, x8_16_2
 	
 	movlw	0x00
-	addwfc	CB, 1, 0
-	movff	CB, x8_16_3
+	addwfc	H2, 1, 0
+	movff	H2, x8_16_3
 	
 	return
 
