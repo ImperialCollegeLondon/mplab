@@ -22,11 +22,34 @@ H2	res 1
 L2	res 1
 in1	res 1
 in2	res 1
+in3	res 1
 CB	res 1
 x8_16_1	res 1
 x8_16_2	res 1
 x8_16_3	res 1
+	
+N1	res 1
+N2	res 1
+temp1	res 1
+temp2	res 1
+temp3	res 1
+x16_16_1 
+	res 1
+x16_16_2
+	res 1
+x16_16_3	
+	res 1
+x16_16_4
+	res 1
 
+x24_8_1
+	res 1
+x24_8_2
+	res 1
+x24_8_3	
+	res 1
+x24_8_4
+	res 1
 tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
 myArray res 0x80    ; reserve 128 bytes for message data
 myArray2
@@ -112,9 +135,16 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	movwf	in1
 	movlw	0x03
 	movwf	in2
+	movlw	0x10
+	movwf	in3
 	movlw	0x56
-	call	x8_by_16
+	movwf	N1
+	movlw	0x03
+	movwf	N2
 	
+	call	x24_by_8
+	
+	goto	$	
 	
 ;measure_loop
 	;call	ADC_Read
@@ -139,8 +169,7 @@ x8_by_16
 	
 	mulwf	in2
 	movff	PRODH, H2
-	movff	PRODL, L2  
-	
+	movff	PRODL, L2
 
 	movff	L1, x8_16_1
 	
@@ -153,7 +182,51 @@ x8_by_16
 	movff	H2, x8_16_3
 	
 	return
-
 	
+x16_by_16
+	movf	N1, W
+	call	x8_by_16
+	movff	x8_16_1, temp1
+	movff	x8_16_2, temp2
+	movff	x8_16_3, temp3
+	
+	movf	N2, W
+	call	x8_by_16
+	
+	movff	temp1, x16_16_1
+	
+	movf	x8_16_1, W
+	addwf	temp2, 1, 0
+	movff	temp2, x16_16_2
+	
+	movf	x8_16_2, W
+	addwfc	temp3, 1, 0
+	movff	temp3, x16_16_3
+	
+	movlw	0x00
+	addwfc	x8_16_3, 1, 0
+	movff	x8_16_3, x16_16_4
+	
+	return
+	
+x24_by_8
+	movf	N1, W
+	call	x8_by_16
+	
+	movff	x8_16_1, x24_8_1
+	movff	x8_16_2, x24_8_2
+	
+	movf	N1, W
+	mulwf	in3
+	
+	movf	PRODL, W
+	addwf	x8_16_3, 1, 0
+	movff	x8_16_3, x24_8_3
+	
+	movlw	0x00
+	addwfc	PRODH, 0, 0
+	movwf	x24_8_4
+	
+	return
 	
 	end
