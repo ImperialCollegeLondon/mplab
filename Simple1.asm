@@ -1,7 +1,7 @@
 	#include p18f87k22.inc
 
 	extern	UART_Setup, UART_Transmit_Message  ; external UART subroutines
-	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String, LCD_First_String    ; external LCD subroutines
+	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String, LCD_First_String,  LCD_Send_Byte_D    ; external LCD subroutines
 
 	extern	UART_Setup, UART_Transmit_Message   ; external UART subroutines
 	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
@@ -50,6 +50,14 @@ x24_8_3
 	res 1
 x24_8_4
 	res 1
+hx_1	res 1
+hx_2	res 1
+
+dec_1	res 1
+dec_2	res 1
+dec_3	res 1
+dec_4	res 1
+	
 tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
 myArray res 0x80    ; reserve 128 bytes for message data
 myArray2
@@ -75,9 +83,9 @@ setup	bcf	EECON1, CFGS	; point to Flash program memory
 	call	LCD_Setup	; setup LCD
 	call	ADC_Setup	; setup ADC
 	movlw	0x41
-	movwf	k1, A
-	movlw	0x8A
 	movwf	k2, A
+	movlw	0x8A
+	movwf	k1, A
 	movlw	0x00
 	movwf	CB, A
 	
@@ -141,20 +149,27 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	movwf	N1
 	movlw	0x03
 	movwf	N2
+	movlw	0x21
+	movwf	hx_1
+	movlw	0x05
+	movwf	hx_2
 	
-	call	x24_by_8
+	;call	hex_dec
 	
-	goto	$	
+	;goto	$	
 	
-;measure_loop
-	;call	ADC_Read
-	;movf	ADRESH,W
+measure_loop
+	call	ADC_Read
+	movff	ADRESH, hx_2
+	movff	ADRESL, hx_1
+	call	hex_dec
+	call	LCD_dec
 	;call	LCD_Write_Hex
 	;movf	ADRESL,W
 	;call	LCD_Write_Hex
-	;call	delay
-	;call	LCD_First_String
-	;goto	measure_loop		; goto current line in code
+	call	delay
+	call	LCD_First_String
+	goto	measure_loop		; goto current line in code
 
 	; a delay subroutine if you need one, times around loop in delay_count
 delay	decfsz	delay_count	; decrement until zero
@@ -229,4 +244,62 @@ x24_by_8
 	
 	return
 	
+hex_dec
+	movff	k1, in1
+	movff	k2, in2
+	movff	hx_1, N1
+	movff	hx_2, N2
+	
+	call	x16_by_16
+	movff	x16_16_4, dec_4
+	
+	movlw	0x0A
+	movwf	N1
+	
+	movff	x16_16_3, in3
+	movff	x16_16_2, in2
+	movff	x16_16_1, in1
+	
+	call	x24_by_8
+	movff	x24_8_4, dec_3
+	
+	movff	x24_8_3, in3
+	movff	x24_8_2, in2
+	movff	x24_8_1, in1
+	
+	call	x24_by_8
+	movff	x24_8_4, dec_2
+	
+	movff	x24_8_3, in3
+	movff	x24_8_2, in2
+	movff	x24_8_1, in1
+	
+	call	x24_by_8
+	movff	x24_8_4, dec_1
+	
+	return
+
+LCD_dec
+	movlw	0x30
+	addwf	dec_4, 0, 0
+	call	LCD_Send_Byte_D
+	movlw	0x30
+	addwf	dec_3, 0, 0
+	call	LCD_Send_Byte_D
+	movlw	0x30
+	addwf	dec_2, 0, 0
+	call	LCD_Send_Byte_D
+	movlw	0x30
+	addwf	dec_1, 0, 0
+	call	LCD_Send_Byte_D
+	
+	return
+	
+	
+	
+	
+
+	
+	
 	end
+
