@@ -7,6 +7,7 @@
 	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
 	extern	LCD_Write_Hex			    ; external LCD subroutines
 	extern  ADC_Setup, ADC_Read		    ; external ADC routines
+	extern	DAC_setup, DAC_stop
 
 	
 acs0	udata_acs   ; reserve data space in access ram
@@ -155,8 +156,23 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	movwf	hx_2
 	
 	;call	hex_dec
+	call	DAC_setup
+	goto	$
+	; sacking the next bit, it is supposed to play sound upon pressing a button
 	
-	;goto	$	
+	movlw	b'10000000'
+	movwf	TRISE
+	banksel PADCFG1 ; PADCFG1 is not in Access Bank!!
+	bsf	PADCFG1,REPU, BANKED ; Turn on pull-ups for Port D
+	movlb	0x00 ; set BSR back to Bank 0
+
+	
+Button_Check
+	btfsc	PORTE, RE7
+	call	DAC_setup
+	btfss	PORTE, RE7
+	call	DAC_stop
+	goto	Button_Check
 	
 measure_loop
 	call	ADC_Read
