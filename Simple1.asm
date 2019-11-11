@@ -7,7 +7,7 @@
 	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
 	extern	LCD_Write_Hex			    ; external LCD subroutines
 	extern  ADC_Setup, ADC_Read		    ; external ADC routines
-	extern	DAC_setup, DAC_stop
+	extern	DAC_setup, DAC_stop, DAC_setup_2
 
 	
 acs0	udata_acs   ; reserve data space in access ram
@@ -93,53 +93,8 @@ setup	bcf	EECON1, CFGS	; point to Flash program memory
 	goto	start
 	
 	; ******* Main programme ****************************************
-start 	lfsr	FSR0, myArray	; Load FSR0 with address in RAM
-	movlw	upper(myTable)	; address of data in PM
-	movwf	TBLPTRU		; load upper bits to TBLPTRU
-	movlw	high(myTable)	; address of data in PM
-	movwf	TBLPTRH		; load high byte to TBLPTRH
-	movlw	low(myTable)	; address of data in PM
-	movwf	TBLPTRL		; load low byte to TBLPTRL
-	movlw	myTable_l	; bytes to read
-	movwf 	counter		; our counter register
-loop 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
-	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
-	decfsz	counter		; count down to zero
-	bra	loop		; keep going until finished
-	
-	lfsr	FSR0, myArray2	; Load FSR0 with address in RAM
-	movlw	upper(myTable2)	; address of data in PM
-	movwf	TBLPTRU		; load upper bits to TBLPTRU
-	movlw	high(myTable2)	; address of data in PM
-	movwf	TBLPTRH		; load high byte to TBLPTRH
-	movlw	low(myTable2)	; address of data in PM
-	movwf	TBLPTRL		; load low byte to TBLPTRL
-	movlw	myTable_2	; bytes to read
-	movwf 	counter		; our counter register
-loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
-	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
-	decfsz	counter		; count down to zero
-	bra	loop2		; keep going until finished
-		
-	;movlw	myTable_l	; output message to LCD (leave out "\n")
-	;lfsr	FSR2, myArray
-	;call	LCD_Write_Message
-	
-	;movlw	myTable_l	; output message to UART
-	;lfsr	FSR2, myArray
-	;call	UART_Transmit_Message
-	;call	LCD_Move_Cursor
-	;call	LCD_Second_String
-	
-	;movlw	myTable_2	; output message to LCD (leave out "\n")
-	;lfsr	FSR2, myArray2
-	;call	LCD_Write_Message
-	
-	;call	LCD_Clear
+start 	
 
-	;goto	$		; goto current line in code
-
-	
 	movlw	0x17
 	movwf	in1
 	movlw	0x03
@@ -168,13 +123,17 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 
 	call	DAC_stop
 Button_Check
-	btfsc
-	btfss	PORTJ, RJ7
-	goto	Button_Check
+	btfsc	PORTJ, RJ7
 	call	DAC_setup
+	btfsc	PORTJ, RJ6
+	call	DAC_setup_2
+	;goto	Button_Check
+	
 	;btfss	PORTJ, RJ7
 button_off_check
-	btfsc	PORTJ, RJ7
+	movlw	0x00
+	cpfseq	PORTJ
+	;btfsc	PORTJ, RJ7
 	goto	button_off_check
 	call	DAC_stop
 	goto	Button_Check
