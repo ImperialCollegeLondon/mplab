@@ -36,10 +36,10 @@ DAC_setup
 	return
 
 DAC_stop    
-	movlw	b'01001000' ; Set timer0 to 16-bit, Fosc/4/256
-	movwf	T0CON ; = 500KHz clock rate, approx 1sec rollover
-	bcf	INTCON,TMR0IE ; Enable timer0 interrupt
-	bcf	INTCON,GIE ; Enable all interrupts
+	movlw	b'01001000' ; TURN TIMER0 OFF
+	movwf	T0CON 
+	bcf	INTCON,TMR0IE ; disable timer0 interrupt
+	bcf	INTCON,GIE ; disable all interrupts
 	return
 	
 delay	decfsz	delay_count	; decrement until zero
