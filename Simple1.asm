@@ -156,21 +156,26 @@ loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	movwf	hx_2
 	
 	;call	hex_dec
-	call	DAC_setup
-	goto	$
-	; sacking the next bit, it is supposed to play sound upon pressing a button
 	
-	movlw	b'10000000'
-	movwf	TRISE
+	;call	DAC_setup
+	;goto	$
+	
+	;movlw	b'10000000'
+	setf	TRISJ ; set portJ as all input
 	banksel PADCFG1 ; PADCFG1 is not in Access Bank!!
-	bsf	PADCFG1,REPU, BANKED ; Turn on pull-ups for Port D
+	bsf	PADCFG1, RJPU, BANKED ; Turn on pull-ups for Port J
 	movlb	0x00 ; set BSR back to Bank 0
 
-	
+	call	DAC_stop
 Button_Check
-	btfsc	PORTE, RE7
+	btfsc
+	btfss	PORTJ, RJ7
+	goto	Button_Check
 	call	DAC_setup
-	btfss	PORTE, RE7
+	;btfss	PORTJ, RJ7
+button_off_check
+	btfsc	PORTJ, RJ7
+	goto	button_off_check
 	call	DAC_stop
 	goto	Button_Check
 	
