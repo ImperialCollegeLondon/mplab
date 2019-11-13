@@ -1,13 +1,13 @@
 	#include p18f87k22.inc
 
 	extern	UART_Setup, UART_Transmit_Message  ; external UART subroutines
-	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String, LCD_First_String,  LCD_Send_Byte_D    ; external LCD subroutines
+	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String, LCD_First_String,  LCD_Send_Byte_D, TMR0_Nop    ; external LCD subroutines
 
 	extern	UART_Setup, UART_Transmit_Message   ; external UART subroutines
 	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
 	extern	LCD_Write_Hex			    ; external LCD subroutines
 	extern  ADC_Setup, ADC_Read		    ; external ADC routines
-	extern	DAC_setup, DAC_stop, DAC_setup_2
+	extern	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, state_init
 
 	
 acs0	udata_acs   ; reserve data space in access ram
@@ -59,22 +59,13 @@ dec_2	res 1
 dec_3	res 1
 dec_4	res 1
 	
-tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
-myArray res 0x80    ; reserve 128 bytes for message data
-myArray2
-	res 0x80    ; reserve 128 bytes for message data
+
 
 rst	code	0    ; reset vector
 	goto	setup
 
 pdata	code    ; a section of programme memory for storing data
 	; ******* myTable, data in programme memory, and its length *****
-myTable data	    "wake up neo"	; message, plus carriage return
-	constant    myTable_l=.11	; length of data
-   
-myTable2
-	data	    "follow rabbit"	; message, plus carriage return
-	constant    myTable_2=.13	; length of data
 	
 main	code
 	; ******* Programme FLASH read Setup Code ***********************
@@ -83,6 +74,7 @@ setup	bcf	EECON1, CFGS	; point to Flash program memory
 	call	UART_Setup	; setup UART
 	call	LCD_Setup	; setup LCD
 	call	ADC_Setup	; setup ADC
+	call	state_init
 	movlw	0x41
 	movwf	k2, A
 	movlw	0x8A
@@ -117,22 +109,37 @@ start
 	
 	;movlw	b'10000000'
 	setf	TRISJ ; set portJ as all input
+	setf	TRISE ; set portJ as all input
 	banksel PADCFG1 ; PADCFG1 is not in Access Bank!!
 	bsf	PADCFG1, RJPU, BANKED ; Turn on pull-ups for Port J
+	bsf	PADCFG1, REPU, BANKED ; Turn on pull-ups for Port E
 	movlb	0x00 ; set BSR back to Bank 0
-
+	call	TMR0_setup
+	
 	call	DAC_stop
+
 Button_Check
-	btfsc	PORTJ, RJ7
-	call	DAC_setup
-	btfsc	PORTJ, RJ6
-	call	DAC_setup_2
+	;movlw	0x00
+	;cpfsgt	PORTJ
+	;goto	Button_Check
+	btfsc	PORTE, RE0
+	call	TMR0_Op
+	btfss	PORTE, RE0
+	call	TMR0_Nop
+	btfsc	PORTJ, RJ7 ;check first button, skip if clear
+	call	DAC_A ;if button pressed, activate DAC_A setup
+	btfsc	PORTJ, RJ6 ;check second button, skip if clear
+	call	DAC_F_s
+	btfsc	PORTJ, RJ5 ;check second button, skip if clear
+	call	DAC_E ;
+	btfsc	PORTJ, RJ4 ;check second button, skip if clear
+	call	DAC_D ;
 	;goto	Button_Check
 	
 	;btfss	PORTJ, RJ7
-button_off_check
-	movlw	0x00
-	cpfseq	PORTJ
+;button_off_check
+	;movlw	0x00
+	;cpfseq	PORTJ
 	;btfsc	PORTJ, RJ7
 	goto	button_off_check
 	call	DAC_stop
