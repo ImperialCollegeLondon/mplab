@@ -1,7 +1,7 @@
 #include p18f87k22.inc
 	
 	
-	global	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, TMR0_Nop, state_init, state_check
+	global	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, TMR0_Nop, state_init, state_check, play, clr_seq
 acs0	udata_acs   ; reserve data space in access ram
 delay_count 
 	res 1   ; reserve one byte for counter in the delay routine
@@ -10,6 +10,9 @@ oo	res 1	; stores on/off instruction
 counter	res 1
 state	res 1
 chng	res 1
+Command	res 1
+Time	res 1
+Note	res 1
 	
 tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
 seq_array
@@ -34,14 +37,13 @@ int_hi	code	0x0008 ; high vector, no low vector
 DAC code
  
 TMR0_setup
-	movlw	b'01001000'
+	movlw	b'01000111'
 	movwf	T0CON ;timeroff, 8bit counter, int. clock low-to-high, no prescaler
 	bcf	INTCON, TMR0IE ; disable interrupt timer0
 	return
 
 TMR0_Op
 	bsf	T0CON, TMR0ON ; turn on timer0
-	lfsr	FSR0, seq_array ; point fsr- to the beginning of the seq_aray
 	return
 
 TMR0_Nop
@@ -93,8 +95,8 @@ neq	; IF THERE WAS A CHANGE OF STATE
 	
 write_action
 	;load 'note code' into 'nc', 'on/off' into 'oo' before calling
-	movf	oo, W
-	addwf	nc, f ; now temp_1 has upper nibble as 'on intruction' and lower nibble as 'note code'
+	;movf	oo, W
+	;addwf	nc, f ; now temp_1 has upper nibble as 'on/off intruction' and lower nibble as 'note code'
 	; load the array
 	movff	nc, POSTINC0
 	movff	TMR0, POSTINC0
@@ -106,6 +108,7 @@ clr_seq
 loop	clrf	POSTINC0
 	decfsz	counter
 	goto	loop
+	lfsr	FSR0, seq_array ; point fsr- to the beginning of the seq_aray
 	return
 	
 DAC_A
@@ -124,10 +127,10 @@ DAC_A
 	; at this point we want to write the time signature from tmr0 and the 
 	; note info into the array seq_array
 	; need a subroutine
-	movlw	0x01 ; suppose thats note code for A
+	movlw	0xf1 ; suppose thats note code for A
 	movwf	nc
-	movlw	0xf0
-	movwf	oo
+	;movlw	0xf0
+	;movwf	oo
 	call	write_action
 	return
 	
@@ -135,8 +138,8 @@ DAC_A_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
 	movlw	0x01 ; suppose thats note code for A
 	movwf	nc
-	movlw	0x00
-	movwf	oo
+	;movlw	0x00
+	;movwf	oo
 	call	write_action
 	return
 
@@ -153,10 +156,10 @@ DAC_F_s
 	bsf	INTCON,GIE ; Enable all interrupts
 	bsf     INTCON,PEIE ; enable peripheral interrupts
 	bsf	T2CON,TMR2ON      ; Start Timer2
-	movlw	0x02 ; suppose thats note code for F_s
+	movlw	0xf2 ; suppose thats note code for F_s
 	movwf	nc
-	movlw	0xf0
-	movwf	oo
+	;movlw	0xF0
+	;movwf	oo
 	call	write_action
 	return
 	
@@ -164,8 +167,8 @@ DAC_F_s_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
 	movlw	0x02 ; suppose thats note code for A
 	movwf	nc
-	movlw	0x00
-	movwf	oo
+	;movlw	0x00
+	;movwf	oo
 	call	write_action
 	return
 	
@@ -182,10 +185,10 @@ DAC_E
 	bsf	INTCON,GIE ; Enable all interrupts
 	bsf     INTCON,PEIE ; enable peripheral interrupts
 	bsf	T2CON,TMR2ON      ; Start Timer2
-	movlw	0x03 ; suppose thats note code for F_s
+	movlw	0xf3 ; suppose thats note code for F_s
 	movwf	nc
-	movlw	0xf0
-	movwf	oo
+	;movlw	0xf0
+	;movwf	oo
 	call	write_action
 	return
 	
@@ -193,8 +196,8 @@ DAC_E_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
 	movlw	0x03 ; suppose thats note code for A
 	movwf	nc
-	movlw	0x00
-	movwf	oo
+	;movlw	0x00
+	;movwf	oo
 	call	write_action
 	return
 	
@@ -211,10 +214,10 @@ DAC_D
 	bsf	INTCON,GIE ; Enable all interrupts
 	bsf     INTCON,PEIE ; enable peripheral interrupts
 	bsf	T2CON,TMR2ON      ; Start Timer2
-	movlw	0x04 ; suppose thats note code for F_s
+	movlw	0xf4 ; suppose thats note code for F_s
 	movwf	nc
-	movlw	0xf0
-	movwf	oo
+	;movlw	0xf0
+	;movwf	oo
 	call	write_action
 	return
 
@@ -222,8 +225,8 @@ DAC_D_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
 	movlw	0x04 ; suppose thats note code for A
 	movwf	nc
-	movlw	0x00
-	movwf	oo
+	;movlw	0x00
+	;movwf	oo
 	call	write_action
 	return
 
@@ -235,8 +238,62 @@ DAC_stop
 	;bcf	INTCON,GIE ; disable all interrupts
 	return
 	
-delay	decfsz	delay_count	; decrement until zero
-	bra delay
-	return
+;delay	decfsz	delay_count	; decrement until zero
+;	bra delay
+;	return
 
+play	
+	lfsr	FSR0, seq_array
+	movff	len_seq, counter
+lop	movff	POSTINC0, Command ; has the form '0/F'(high nibble) + 'NC'(low nibble)
+	movff	POSTINC0, Time
+	call	TMR0_Op
+	movf	Time, W
+wai	cpfseq	TMR0
+	goto	wai
+	movff	Command, Note
+	movlw	0x0F
+	andwf	Note, 1 ; the actual note is now in Note, info on the note erased
+	swapf	Command
+	andwf	Command, 1
+	
+on	cpfseq	Command
+	goto	off
+a	movlw	0x01
+	cpfseq	Note
+	goto	f_s	
+	call	DAC_A
+f_s	movlw	0x02
+	cpfseq	Note
+	goto	e
+	call	DAC_F_s
+e	movlw	0x03
+	cpfseq	Note
+	goto	d
+	call	DAC_E
+d	movlw	0x04
+	cpfseq	Note ;goto	lop
+	call	DAC_D
+off	
+a_off	movlw	0x01
+	cpfseq	Note
+	goto	f_s_off	
+	call	DAC_A_off
+f_s_off	movlw	0x02
+	cpfseq	Note
+	goto	e_off
+	call	DAC_F_s
+e_off	movlw	0x03
+	cpfseq	Note
+	goto	d_off
+	call	DAC_E_off
+d_off	movlw	0x04
+	cpfseq	Note
+	call	DAC_D_off ;goto	lop
+	
+	decfsz	counter
+	goto	lop
+
+	return
+	
 	end
