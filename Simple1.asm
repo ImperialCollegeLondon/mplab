@@ -7,7 +7,7 @@
 	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
 	extern	LCD_Write_Hex			    ; external LCD subroutines
 	extern  ADC_Setup, ADC_Read		    ; external ADC routines
-	extern	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, state_init, state_check, play, clr_seq
+	extern	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, state_init, state_check, play, clr_seq, rec_on
 
 	
 acs0	udata_acs   ; reserve data space in access ram
@@ -125,27 +125,14 @@ Button_Check
 	;cpfsgt	PORTJ
 	;goto	Button_Check
 	btfsc	PORTE, RE0  ;checks whether to turn on TMR0, i.e if button is held down
-	call	TMR0_Op
+	call	rec_on ; TMR0_Op
 	btfss	PORTE, RE0 ;checks whether to turn off TMR0, i.e. when tmer button is released
 	call	TMR0_Nop
 	call	state_check
+	btfsc	PORTJ, RJ0 ;checks whether to play, i.e. when play button is held down
+	call	play
 	
 	goto	Button_Check
-	
-	
-	
-	
-	
-	;btfsc	PORTJ, RJ7 ;check first button, skip if clear
-	;call	DAC_A ;if button pressed, activate DAC_A setup
-	;btfsc	PORTJ, RJ6 ;check second button, skip if clear
-	;call	DAC_F_s
-	;btfsc	PORTJ, RJ5 ;check second button, skip if clear
-	;call	DAC_E ;
-	;btfsc	PORTJ, RJ4 ;check second button, skip if clear
-	;call	DAC_D ;
-	;goto	Button_Check
-	;btfss	PORTJ, RJ7
 ;button_off_check
 	;movlw	0x00
 	;cpfseq	PORTJ
