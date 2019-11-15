@@ -1,13 +1,16 @@
 #include p18f87k22.inc
 	
 	
-	global	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, TMR0_Nop, state_init, state_check, play, clr_seq
+	global	DAC_A, DAC_stop, DAC_F_s, DAC_D, DAC_E, TMR0_Op, TMR0_setup, TMR0_Nop, state_init, state_check, play, clr_seq, rec_on
 acs0	udata_acs   ; reserve data space in access ram
 delay_count 
 	res 1   ; reserve one byte for counter in the delay routine
 nc	res 1	; stores note code
 oo	res 1	; stores on/off instruction
 counter	res 1
+dylen	res 1
+dylen_cnt
+	res 1
 tmr0_cnt   
 	res 1
 state	res 1
@@ -20,8 +23,8 @@ Note	res 1
 	
 tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
 seq_array
-	res 	    .80	;reserve 80 bytes
-	constant    len_seq=.80
+	res 	    .120	;reserve 120 bytes
+	constant    len_seq=.120 ; 1/3 of the array, because 3 bytes per command
 	
 int_hi	code	0x0008 ; high vector, no low vector
 	btfsc	PIR1,TMR2IF ; check if that this is timer2 interrupt
@@ -39,7 +42,7 @@ tmr0	incf	tmr0_cnt
 DAC code
  
 TMR0_setup
-	movlw	b'00000001' ; in 16 bit mode MUST read low first!!!
+	movlw	b'00000011' ; in 16 bit mode MUST read low first!!!
 	movwf	T0CON ;timeroff, 8bit counter, int. clock low-to-high, supposedly 1:256 prescaler
 	bsf	INTCON, TMR0IE ; enable interrupt timer0
 	return
@@ -53,11 +56,23 @@ TMR0_Op
 	return
 
 TMR0_Nop
+	btfss	T0CON, TMR0ON ;if set, needs to be turned off so skip line
+	return
 	bcf	T0CON, TMR0ON ; turn off timer0
 	clrf	TMR0
 	clrf	tmr0_cnt
+	movff	dylen_cnt, dylen
 	return
-
+	
+	
+rec_on
+	btfsc	T0CON, TMR0ON ;if clear, needs to be turned on so skip line
+	return
+	call	TMR0_Op
+	clrf	dylen_cnt
+	call	state_init
+	return
+	
 	
 state_init
 	movff	PORTJ, state
@@ -111,7 +126,8 @@ write_action
 	return
 	movff	nc, POSTINC0
 	movff	tmr0_cnt, POSTINC0
-	movff	TMR0L, POSTINC0
+	movf	TMR0L, W
+	;movff	TMR0L, POSTINC0
 L1:	
 	;disable global interrupts
 	;copy TMR0H to temporary register (w)
@@ -123,6 +139,7 @@ L1:
 	
 	
 	movff	TMR0H, POSTINC0
+	incf	dylen_cnt
 	
 	return
 
@@ -268,14 +285,14 @@ DAC_stop
 
 play	
 	lfsr	FSR0, seq_array
-	movff	len_seq, counter
-lop	movff	POSTINC0, Command ; has the form '0/F'(high nibble) + 'NC'(low nibble)
+	;movff	dylen, counter
+lop:	movff	POSTINC0, Command ; has the form '0/F'(high nibble) + 'NC'(low nibble)
 	movff	POSTINC0, TimeC
-	movff	POSTINC0, TimeL
+	;movff	POSTINC0, TimeL
 	movff	POSTINC0, TimeH
 	call	TMR0_Op
 	
-wai	movf	TimeC, W
+wai:	movf	TimeC, W
 	cpfseq	tmr0_cnt
 	goto	wai
 	movf	TMR0L, W ; to buffer TMR0H
@@ -290,45 +307,45 @@ wai	movf	TimeC, W
 	swapf	Command
 	andwf	Command, 1
 	
-on	cpfseq	Command
+on:	cpfseq	Command
 	goto	off
-a	movlw	0x01
+a:	movlw	0x01
 	cpfseq	Note
 	goto	f_s	
 	call	DAC_A
-f_s	movlw	0x02
+f_s:	movlw	0x02
 	cpfseq	Note
 	goto	e
 	call	DAC_F_s
-e	movlw	0x03
+e:	movlw	0x03
 	cpfseq	Note
 	goto	d
 	call	DAC_E
-d	movlw	0x04
+d:	movlw	0x04
 	cpfseq	Note ;goto	lop
 	goto	lop
 	call	DAC_D
 	goto	lop
-off	
-a_off	movlw	0x01
+off:	
+a_off:	movlw	0x01
 	cpfseq	Note
 	goto	f_s_off	
 	call	DAC_A_off
-f_s_off	movlw	0x02
+f_s_off:	movlw	0x02
 	cpfseq	Note
 	goto	e_off
 	call	DAC_F_s
-e_off	movlw	0x03
+e_off:	movlw	0x03
 	cpfseq	Note
 	goto	d_off
 	call	DAC_E_off
-d_off	movlw	0x04
+d_off:	movlw	0x04
 	cpfseq	Note
 	goto	en
 	call	DAC_D_off ;goto	lop
-en	decfsz	counter
+en:	decfsz	dylen
 	goto	lop
-
+	call	TMR0_Nop	
 	return
 	
 	end
