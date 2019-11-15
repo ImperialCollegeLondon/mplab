@@ -89,28 +89,40 @@ neq	; IF THERE WAS A CHANGE OF STATE
 	comf	state, 0 ; NOT state is now in W
 	andwf	PORTJ, 0 ; should tell us which bits went 0->1	
 	movwf	chng
-	btfsc	chng, 7 ; if note A is on, do the thing
+	btfsc	chng, 7 ; if note B is on, do the thing
+	call	DAC_B
+	btfsc	chng, 6 ; if note A is on, do the thing
 	call	DAC_A
-	btfsc	chng, 6 ; if note F_s is on, do the thing
+	btfsc	chng, 5 ; if note G_s is on, do the thing
+	call	DAC_G_s
+	btfsc	chng, 4 ; if note F_s is on, do the thing
 	call	DAC_F_s
-	btfsc	chng, 5 ; if note E is on, do the thing
+	btfsc	chng, 3 ; if note F is on, do the thing
+	call	DAC_F
+	btfsc	chng, 2 ; if note E is on, do the thing
 	call	DAC_E
-	btfsc	chng, 4 ; if note D is on, do the thing
+	btfsc	chng, 1 ; if note D is on, do the thing
 	call	DAC_D
-	btfsc	chng, 0 ; if 0 went on, play
-	call	play
+	;btfsc	chng, 0 ; if 0 went on, play
+	;call	play
 	
 	; state & ~portj
 	comf	PORTJ, 0
 	andwf	state, 0    ; should tell us which bits went 1->0
 	movwf	chng
-	btfsc	chng, 7 ; if note A is off, do the thing
+	btfsc	chng, 7 ; if note B is off, do the thing
+	call	DAC_B_off
+	btfsc	chng, 6 ; if note A is off, do the thing
 	call	DAC_A_off
-	btfsc	chng, 6 ; if note F_s is off, do the thing
+	btfsc	chng, 5 ; if note G_s is off, do the thing
+	call	DAC_G_s_off
+	btfsc	chng, 4 ; if note F_s is off, do the thing
 	call	DAC_F_s_off
-	btfsc	chng, 5 ; if note E is off, do the thing
+	btfsc	chng, 3 ; if note F is off, do the thing
+	call	DAC_F_off
+	btfsc	chng, 2 ; if note E is off, do the thing
 	call	DAC_E_off
-	btfsc	chng, 4 ; if note D is off, do the thing
+	btfsc	chng, 1 ; if note D is off, do the thing
 	call	DAC_D_off
 	
 	call	state_init
@@ -151,6 +163,38 @@ loop	clrf	POSTINC0
 	goto	loop
 	lfsr	FSR0, seq_array ; point fsr- to the beginning of the seq_aray
 	return
+
+DAC_B
+	clrf	TRISD ; Set PORTD as all outputs
+	;clrf	TRISE
+	clrf	LATD ; Clear PORTD outputs
+	;clrf	PORTE ; Clear PORTE outputs -- dont need port e anymore
+	movlw	b'00000100' ; Set timer2 to 8-bit, prescaler 1:1, postscaler 1:1
+	movwf	T2CON ; = 500KHz clock rate, approx 1sec rollover
+	movlw	.126 ;choose PR2 value 
+	movwf	PR2
+	bsf	PIE1,TMR2IE ; Enable timer2 interrupt
+	bsf	INTCON,GIE ; Enable all interrupts
+	bsf     INTCON,PEIE ; enable peripheral interrupts
+	bsf	T2CON,TMR2ON      ; Start Timer2
+	; at this point we want to write the time signature from tmr0 and the 
+	; note info into the array seq_array
+	; need a subroutine
+	movlw	0xf1 ; suppose thats note code for B
+	movwf	nc
+	;movlw	0xf0
+	;movwf	oo
+	call	write_action
+	return
+	
+DAC_B_off
+	bcf	T2CON, TMR2ON ; turn off timer 2
+	movlw	0x01 ; suppose thats note code for B
+	movwf	nc
+	;movlw	0x00
+	;movwf	oo
+	call	write_action
+	return
 	
 DAC_A
 	clrf	TRISD ; Set PORTD as all outputs
@@ -168,7 +212,7 @@ DAC_A
 	; at this point we want to write the time signature from tmr0 and the 
 	; note info into the array seq_array
 	; need a subroutine
-	movlw	0xf1 ; suppose thats note code for A
+	movlw	0xf2 ; suppose thats note code for A
 	movwf	nc
 	;movlw	0xf0
 	;movwf	oo
@@ -177,7 +221,39 @@ DAC_A
 	
 DAC_A_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
-	movlw	0x01 ; suppose thats note code for A
+	movlw	0x02 ; suppose thats note code for A
+	movwf	nc
+	;movlw	0x00
+	;movwf	oo
+	call	write_action
+	return
+
+DAC_G_s
+	clrf	TRISD ; Set PORTD as all outputs
+	;clrf	TRISE
+	clrf	LATD ; Clear PORTD outputs
+	;clrf	PORTE ; Clear PORTE outputs -- dont need port e anymore
+	movlw	b'00000100' ; Set timer2 to 8-bit, prescaler 1:1, postscaler 1:1
+	movwf	T2CON ; = 500KHz clock rate, approx 1sec rollover
+	movlw	.150 ;choose PR2 value 
+	movwf	PR2
+	bsf	PIE1,TMR2IE ; Enable timer2 interrupt
+	bsf	INTCON,GIE ; Enable all interrupts
+	bsf     INTCON,PEIE ; enable peripheral interrupts
+	bsf	T2CON,TMR2ON      ; Start Timer2
+	; at this point we want to write the time signature from tmr0 and the 
+	; note info into the array seq_array
+	; need a subroutine
+	movlw	0xf3 ; suppose thats note code for G_s
+	movwf	nc
+	;movlw	0xf0
+	;movwf	oo
+	call	write_action
+	return
+	
+DAC_G_s_off
+	bcf	T2CON, TMR2ON ; turn off timer 2
+	movlw	0x03 ; suppose thats note code for G_s
 	movwf	nc
 	;movlw	0x00
 	;movwf	oo
@@ -191,22 +267,53 @@ DAC_F_s
 	;clrf	PORTE ; Clear PORTE outputs -- dont need port e anymore
 	movlw	b'00000100' ; Set timer2 to 8-bit, prescaler 1:1, postscaler 1:1
 	movwf	T2CON ; = 500KHz clock rate, approx 1sec rollover
-	movlw	.169 ;choose PR2 value 
+	movlw	.168 ;choose PR2 value 
 	movwf	PR2
 	bsf	PIE1,TMR2IE ; Enable timer2 interrupt
 	bsf	INTCON,GIE ; Enable all interrupts
 	bsf     INTCON,PEIE ; enable peripheral interrupts
 	bsf	T2CON,TMR2ON      ; Start Timer2
-	movlw	0xf2 ; suppose thats note code for F_s
+	; at this point we want to write the time signature from tmr0 and the 
+	; note info into the array seq_array
+	; need a subroutine
+	movlw	0xf4 ; suppose thats note code for F_s
 	movwf	nc
-	;movlw	0xF0
+	;movlw	0xf0
 	;movwf	oo
 	call	write_action
 	return
 	
 DAC_F_s_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
-	movlw	0x02 ; suppose thats note code for A
+	movlw	0x04 ; suppose thats note code for F_s
+	movwf	nc
+	;movlw	0x00
+	;movwf	oo
+	call	write_action
+	return
+DAC_F
+	clrf	TRISD ; Set PORTD as all outputs
+	;clrf	TRISE
+	clrf	LATD ; Clear PORTD outputs
+	;clrf	PORTE ; Clear PORTE outputs -- dont need port e anymore
+	movlw	b'00000100' ; Set timer2 to 8-bit, prescaler 1:1, postscaler 1:1
+	movwf	T2CON ; = 500KHz clock rate, approx 1sec rollover
+	movlw	.178 ;choose PR2 value 
+	movwf	PR2
+	bsf	PIE1,TMR2IE ; Enable timer2 interrupt
+	bsf	INTCON,GIE ; Enable all interrupts
+	bsf     INTCON,PEIE ; enable peripheral interrupts
+	bsf	T2CON,TMR2ON      ; Start Timer2
+	movlw	0xf5 ; suppose thats note code for F
+	movwf	nc
+	;movlw	0xF0
+	;movwf	oo
+	call	write_action
+	return
+	
+DAC_F_off
+	bcf	T2CON, TMR2ON ; turn off timer 2
+	movlw	0x05 ; suppose thats note code for F
 	movwf	nc
 	;movlw	0x00
 	;movwf	oo
@@ -220,13 +327,13 @@ DAC_E
 	;clrf	PORTE ; Clear PORTE outputs -- dont need port e anymore
 	movlw	b'00000100' ; Set timer2 to 8-bit, prescaler 1:1, postscaler 1:1
 	movwf	T2CON ; = 500KHz clock rate, approx 1sec rollover
-	movlw	.190 ;choose PR2 value 
+	movlw	.188 ;choose PR2 value 
 	movwf	PR2
 	bsf	PIE1,TMR2IE ; Enable timer2 interrupt
 	bsf	INTCON,GIE ; Enable all interrupts
 	bsf     INTCON,PEIE ; enable peripheral interrupts
 	bsf	T2CON,TMR2ON      ; Start Timer2
-	movlw	0xf3 ; suppose thats note code for F_s
+	movlw	0xf6 ; suppose thats note code for E
 	movwf	nc
 	;movlw	0xf0
 	;movwf	oo
@@ -235,7 +342,7 @@ DAC_E
 	
 DAC_E_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
-	movlw	0x03 ; suppose thats note code for A
+	movlw	0x06 ; suppose thats note code for E
 	movwf	nc
 	;movlw	0x00
 	;movwf	oo
@@ -249,13 +356,13 @@ DAC_D
 	;clrf	PORTE ; Clear PORTE outputs -- dont need port e anymore
 	movlw	b'00000100' ; Set timer2 to 8-bit, prescaler 1:1, postscaler 1:1
 	movwf	T2CON ; = 500KHz clock rate, approx 1sec rollover
-	movlw	.213 ;choose PR2 value 
+	movlw	.212 ;choose PR2 value 
 	movwf	PR2
 	bsf	PIE1,TMR2IE ; Enable timer2 interrupt
 	bsf	INTCON,GIE ; Enable all interrupts
 	bsf     INTCON,PEIE ; enable peripheral interrupts
 	bsf	T2CON,TMR2ON      ; Start Timer2
-	movlw	0xf4 ; suppose thats note code for F_s
+	movlw	0xf7 ; suppose thats note code for D
 	movwf	nc
 	;movlw	0xf0
 	;movwf	oo
@@ -264,7 +371,7 @@ DAC_D
 
 DAC_D_off
 	bcf	T2CON, TMR2ON ; turn off timer 2
-	movlw	0x04 ; suppose thats note code for A
+	movlw	0x07 ; suppose thats note code for D
 	movwf	nc
 	;movlw	0x00
 	;movwf	oo
@@ -309,37 +416,62 @@ wai:	movf	TimeC, W
 	
 on:	cpfseq	Command
 	goto	off
-a:	movlw	0x01
+b:	movlw	0x01
 	cpfseq	Note
-	goto	f_s	
+	goto	a	
+	call	DAC_B
+a:	movlw	0x02
+	cpfseq	Note
+	goto	g_s
 	call	DAC_A
-f_s:	movlw	0x02
+g_s:	movlw	0x03
+	cpfseq	Note
+	goto	f_s
+	call	DAC_G_s
+f_s:	movlw	0x04
+	cpfseq	Note
+	goto	f
+	call	DAC_F_s
+f:	movlw	0x05
 	cpfseq	Note
 	goto	e
-	call	DAC_F_s
-e:	movlw	0x03
+	call	DAC_F
+e:	movlw	0x06
 	cpfseq	Note
 	goto	d
 	call	DAC_E
-d:	movlw	0x04
-	cpfseq	Note ;goto	lop
-	goto	lop
+d:	movlw	0x07
+	cpfseq	Note
+	goto	en1
 	call	DAC_D
+en1:	decfsz	dylen
 	goto	lop
 off:	
-a_off:	movlw	0x01
+b_off:	movlw	0x01
 	cpfseq	Note
-	goto	f_s_off	
+	goto	a_off	
+	call	DAC_B_off
+a_off:movlw	0x02
+	cpfseq	Note
+	goto	g_s_off
 	call	DAC_A_off
-f_s_off:	movlw	0x02
+g_s_off:movlw	0x03
+	cpfseq	Note
+	goto	f_s_off
+	call	DAC_G_s_off
+f_s_off:movlw	0x04
+	cpfseq	Note
+	goto	f_off
+	call	DAC_F_s_off
+f_off:	movlw	0x05
 	cpfseq	Note
 	goto	e_off
-	call	DAC_F_s
-e_off:	movlw	0x03
+	call	DAC_F_off
+e_off:	movlw	0x06
 	cpfseq	Note
-	goto	d_off
+	goto	d_off	
 	call	DAC_E_off
-d_off:	movlw	0x04
+d_off:	movlw	0x07
 	cpfseq	Note
 	goto	en
 	call	DAC_D_off ;goto	lop
