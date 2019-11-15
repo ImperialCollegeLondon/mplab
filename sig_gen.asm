@@ -8,10 +8,14 @@ delay_count
 nc	res 1	; stores note code
 oo	res 1	; stores on/off instruction
 counter	res 1
+tmr0_cnt   
+	res 1
 state	res 1
 chng	res 1
 Command	res 1
-Time	res 1
+TimeL	res 1
+TimeH	res 1
+TimeC	res 1
 Note	res 1
 	
 tables	udata	0x400    ; reserve data anywhere in RAM (here at 0x400)
@@ -20,35 +24,38 @@ seq_array
 	constant    len_seq=.80
 	
 int_hi	code	0x0008 ; high vector, no low vector
-	btfss	PIR1,TMR2IF ; check that this is timer2 interrupt
+	btfsc	PIR1,TMR2IF ; check if that this is timer2 interrupt
+	goto	tmr2
+	btfsc	INTCON, TMR0IF ; check if that this is timer0 interrupt
+	goto	tmr0
 	retfie	FAST ; if not then return
-	;movlw	0x10
-	;addwf	LATD, 1, 0
-	incf	LATD ; increment PORTD
-	;movlw	0x00
-	;movwf	PORTE
-	;call	delay
-	;movlw	0x01
-	;movwf	PORTE
-	;call	delay
+tmr2	incf	LATD ; increment PORTD
 	bcf	PIR1,TMR2IF ; clear timer2 interrupt flag
 	retfie	FAST ; fast return from interrupt
+tmr0	incf	tmr0_cnt
+	bcf	INTCON, TMR0IF ;  clear tmr0 interrupt flag
+	retfie	FAST
     
 DAC code
  
 TMR0_setup
-	movlw	b'01000111'
-	movwf	T0CON ;timeroff, 8bit counter, int. clock low-to-high, no prescaler
-	bcf	INTCON, TMR0IE ; disable interrupt timer0
+	movlw	b'00000001' ; in 16 bit mode MUST read low first!!!
+	movwf	T0CON ;timeroff, 8bit counter, int. clock low-to-high, supposedly 1:256 prescaler
+	bsf	INTCON, TMR0IE ; enable interrupt timer0
 	return
 
 TMR0_Op
-	bsf	T0CON, TMR0ON ; turn on timer0
+	btfsc	T0CON, TMR0ON ;if clear, needs to be turned on so skip line
+	return
+	bsf	T0CON, TMR0ON ; turn on timer0 if was off
+	clrf	tmr0_cnt
+	clrf	TMR0
 	return
 
 TMR0_Nop
 	bcf	T0CON, TMR0ON ; turn off timer0
 	clrf	TMR0
+	clrf	tmr0_cnt
 	return
 
 	
@@ -75,6 +82,8 @@ neq	; IF THERE WAS A CHANGE OF STATE
 	call	DAC_E
 	btfsc	chng, 4 ; if note D is on, do the thing
 	call	DAC_D
+	btfsc	chng, 0 ; if 0 went on, play
+	call	play
 	
 	; state & ~portj
 	comf	PORTJ, 0
@@ -98,8 +107,23 @@ write_action
 	;movf	oo, W
 	;addwf	nc, f ; now temp_1 has upper nibble as 'on/off intruction' and lower nibble as 'note code'
 	; load the array
+	btfss	PORTE, RE0
+	return
 	movff	nc, POSTINC0
-	movff	TMR0, POSTINC0
+	movff	tmr0_cnt, POSTINC0
+	movff	TMR0L, POSTINC0
+L1:	
+	;disable global interrupts
+	;copy TMR0H to temporary register (w)
+	;copy counter 
+	;check timer interrupt flag
+	;if set: enable interrupt and goto L1
+	
+	;enable interripts
+	
+	
+	movff	TMR0H, POSTINC0
+	
 	return
 
 clr_seq
@@ -246,10 +270,19 @@ play
 	lfsr	FSR0, seq_array
 	movff	len_seq, counter
 lop	movff	POSTINC0, Command ; has the form '0/F'(high nibble) + 'NC'(low nibble)
-	movff	POSTINC0, Time
+	movff	POSTINC0, TimeC
+	movff	POSTINC0, TimeL
+	movff	POSTINC0, TimeH
 	call	TMR0_Op
-	movf	Time, W
-wai	cpfseq	TMR0
+	
+wai	movf	TimeC, W
+	cpfseq	tmr0_cnt
+	goto	wai
+	movf	TMR0L, W ; to buffer TMR0H
+	;cpfsgt	TMR0L
+	;goto	wai
+	movf	TimeH, W
+	cpfsgt	TMR0H
 	goto	wai
 	movff	Command, Note
 	movlw	0x0F
@@ -273,7 +306,9 @@ e	movlw	0x03
 	call	DAC_E
 d	movlw	0x04
 	cpfseq	Note ;goto	lop
+	goto	lop
 	call	DAC_D
+	goto	lop
 off	
 a_off	movlw	0x01
 	cpfseq	Note
@@ -289,9 +324,9 @@ e_off	movlw	0x03
 	call	DAC_E_off
 d_off	movlw	0x04
 	cpfseq	Note
+	goto	en
 	call	DAC_D_off ;goto	lop
-	
-	decfsz	counter
+en	decfsz	counter
 	goto	lop
 
 	return
