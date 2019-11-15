@@ -127,7 +127,7 @@ Button_Check
 	btfsc	PORTE, RE0  ;checks whether to turn on TMR0, i.e if button is held down
 	call	TMR0_Op
 	btfss	PORTE, RE0 ;checks whether to turn off TMR0, i.e. when tmer button is released
-	call	play ;call	TMR0_Nop
+	call	TMR0_Nop
 	call	state_check
 	
 	goto	Button_Check
