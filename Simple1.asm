@@ -1,9 +1,7 @@
 	#include p18f87k22.inc
 
-	extern	UART_Setup, UART_Transmit_Message  ; external UART subroutines
 	extern  LCD_Setup, LCD_Write_Message, LCD_Clear, LCD_Send_Byte_I, LCD_Move_Cursor, LCD_Second_String, LCD_First_String,  LCD_Send_Byte_D, TMR0_Nop    ; external LCD subroutines
 
-	extern	UART_Setup, UART_Transmit_Message   ; external UART subroutines
 	extern  LCD_Setup, LCD_Write_Message	    ; external LCD subroutines
 	extern	LCD_Write_Hex			    ; external LCD subroutines
 	extern  ADC_Setup, ADC_Read		    ; external ADC routines
@@ -58,20 +56,33 @@ dec_1	res 1
 dec_2	res 1
 dec_3	res 1
 dec_4	res 1
+
+
+	
+;LCD
+pdata	code    ; a section of programme memory for storing data
+	; ******* myTable, data in programme memory, and its length *****
+myArray res 0x80    ; reserve 128 bytes for message data
+myArray2
+	res 0x80    ; reserve 128 bytes for message data
+	
+myTable data	    "The Big Bit Beep"	; message, plus carriage return
+	constant    myTable_l=.16	; length of data
+myTable2
+	data	    "Boop Machine"	; message, plus carriage return
+	constant    myTable_2=.12	; length of data
+;END OF LCD	
+
 	
 
 
 rst	code	0    ; reset vector
 	goto	setup
-
-pdata	code    ; a section of programme memory for storing data
-	; ******* myTable, data in programme memory, and its length *****
 	
 main	code
-	; ******* Programme FLASH read Setup Code ***********************
+	; *******LCD: Programme FLASH read Setup Code ***********************
 setup	bcf	EECON1, CFGS	; point to Flash program memory  
 	bsf	EECON1, EEPGD 	; access Flash program memory
-	call	UART_Setup	; setup UART
 	call	LCD_Setup	; setup LCD
 	call	ADC_Setup	; setup ADC
 	call	state_init
@@ -82,12 +93,14 @@ setup	bcf	EECON1, CFGS	; point to Flash program memory
 	movlw	0x00
 	movwf	CB, A
 	
+	; ******* LCD setup ***********************
+	bcf	EECON1, CFGS	; point to Flash program memory  
+	bsf	EECON1, EEPGD 	; access Flash program memory
+	call	LCD_Setup	; setup LCD
 	goto	start
 	
 	; ******* Main programme ****************************************
-start 	
-
-	movlw	0x17
+start 	movlw	0x17
 	movwf	in1
 	movlw	0x03
 	movwf	in2
@@ -101,13 +114,7 @@ start
 	movwf	hx_1
 	movlw	0x05
 	movwf	hx_2
-	
-	;call	hex_dec
-	
-	;call	DAC_setup
-	;goto	$
-	
-	;movlw	b'10000000'
+
 	setf	TRISJ ; set portJ as all input
 	setf	TRISE ; set portE as all input
 	banksel PADCFG1 ; PADCFG1 is not in Access Bank!!
@@ -120,6 +127,52 @@ start
 	call	clr_seq
 	call	state_init
 
+	
+	
+	;LCD
+	lfsr	FSR0, myArray	; Load FSR0 with address in RAM
+	movlw	upper(myTable)	; address of data in PM
+	movwf	TBLPTRU		; load upper bits to TBLPTRU
+	movlw	high(myTable)	; address of data in PM
+	movwf	TBLPTRH		; load high byte to TBLPTRH
+	movlw	low(myTable)	; address of data in PM
+	movwf	TBLPTRL		; load low byte to TBLPTRL
+	movlw	myTable_l	; bytes to read
+	movwf 	counter		; our counter register
+loop 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter		; count down to zero
+	bra	loop		; keep going until finished
+
+	lfsr	FSR0, myArray2	; Load FSR0 with address in RAM
+	movlw	upper(myTable2)	; address of data in PM
+	movwf	TBLPTRU		; load upper bits to TBLPTRU
+	movlw	high(myTable2)	; address of data in PM
+	movwf	TBLPTRH		; load high byte to TBLPTRH
+	movlw	low(myTable2)	; address of data in PM
+	movwf	TBLPTRL		; load low byte to TBLPTRL
+	movlw	myTable_2	; bytes to read
+	movwf 	counter		; our counter register
+loop2 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter		; count down to zero
+	bra	loop2		; keep going until finished
+	
+	call	LCD_First_String
+	movlw	myTable_l	; output message to LCD (leave out "\n")
+	lfsr	FSR2, myArray
+	call	LCD_Write_Message
+
+	
+	call	LCD_Second_String
+	movlw	myTable_2	; output message to LCD (leave out "\n")
+	lfsr	FSR2, myArray2
+	call	LCD_Write_Message
+
+		; goto current line in code
+	;end of LCD
+
+	
 Button_Check
 	;movlw	0x00
 	;cpfsgt	PORTJ
@@ -133,13 +186,8 @@ Button_Check
 	call	play
 	
 	goto	Button_Check
-;button_off_check
-	;movlw	0x00
-	;cpfseq	PORTJ
-	;btfsc	PORTJ, RJ7
-	;goto	button_off_check
-	;call	DAC_stop
-	;goto	Button_Check
+
+
 	
 measure_loop
 	call	ADC_Read
