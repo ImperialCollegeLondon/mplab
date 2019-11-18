@@ -1,10 +1,87 @@
 #include p18f87k22.inc
 
-    global  ADC_Setup, ADC_Read
+    global  ADC_Setup, ADC_Read, get_measurement
+    extern  LCD_First_String
+    extern  LCD_Send_Byte_D
     
+
+    
+acs_ovr	access_ovr
+k1	res 1
+k2	res 1
+H1	res 1
+L1	res 1
+H2	res 1
+L2	res 1
+in1	res 1
+in2	res 1
+in3	res 1
+CB	res 1
+x8_16_1	res 1
+x8_16_2	res 1
+x8_16_3	res 1
+	
+N1	res 1
+N2	res 1
+temp1	res 1
+temp2	res 1
+temp3	res 1
+x16_16_1 
+	res 1
+x16_16_2
+	res 1
+x16_16_3	
+	res 1
+x16_16_4
+	res 1
+
+x24_8_1
+	res 1
+x24_8_2
+	res 1
+x24_8_3	
+	res 1
+x24_8_4
+	res 1
+hx_1	res 1
+hx_2	res 1
+
+dec_1	res 1
+dec_2	res 1
+dec_3	res 1
+dec_4	res 1
+delay_count
+	res 1	
+	
+
 ADC    code
     
+hex_dec_var_setup
+    movlw   0x41
+    movwf   k2, A
+    movlw   0x8A
+    movwf   k1, A
+    movlw   0x00
+    movwf   CB, A
+    movlw   0x17
+    movwf   in1
+    movlw   0x03
+    movwf   in2
+    movlw   0x10
+    movwf   in3
+    movlw   0x56
+    movwf   N1
+    movlw   0x03
+    movwf   N2
+    movlw   0x21
+    movwf   hx_1
+    movlw   0x05
+    movwf   hx_2
+    return
+    
 ADC_Setup
+    call    hex_dec_var_setup
+    call    TMR4_setup
     bsf	    TRISA,RA0	    ; use pin A0(==AN0) for input
     bsf	    ANCON0,ANSEL0   ; set A0 to analog
     movlw   0x01	    ; select AN0 for measurement
@@ -20,6 +97,149 @@ ADC_Read
 adc_loop
     btfsc   ADCON0,GO	    ; check to see if finished
     bra	    adc_loop
+    return
+    
+TMR4_setup
+    movlw   b'01111010' ; turn on (2nd bit) to control the speed (in progress)
+    movwf   T4CON ;timeroff, 8bit counter, int. clock low-to-high, supposedly 1:256 prescaler
+    bsf	    PIE5,TMR4IE ; Enable timer4 interrupt
+    bcf     IPR5,TMR4IE
+    bsf	    INTCON,GIE ; Enable all interrupts
+    bsf     INTCON,PEIE ; enable peripheral interrupts
+    return
+    
+get_measurement
+    call	ADC_Read
+    movff	ADRESH, hx_2
+    movff	ADRESL, hx_1
+    ;Printing the ADC measurement on LCD takes a while, hence it messes up the replay
+    ;call	hex_dec
+    ;call	LCD_dec
+    ;call	delay
+    ;call	LCD_First_String
+    return
+    
+	; a delay subroutine if you need one, times around loop in delay_count
+delay	
+    decfsz	delay_count	; decrement until zero
+    bra		delay
+    
+x8_by_16
+    mulwf	in1
+    movff	PRODH, H1
+    movff	PRODL, L1
+
+    mulwf	in2
+    movff	PRODH, H2
+    movff	PRODL, L2
+
+    movff	L1, x8_16_1
+
+    movf	H1, W
+    addwf	L2, 1, 0
+    movff	L2, x8_16_2
+
+    movlw	0x00
+    addwfc	H2, 1, 0
+    movff	H2, x8_16_3
+
+    return
+
+x16_by_16
+    movf	N1, W
+    call	x8_by_16
+    movff	x8_16_1, temp1
+    movff	x8_16_2, temp2
+    movff	x8_16_3, temp3
+
+    movf	N2, W
+    call	x8_by_16
+
+    movff	temp1, x16_16_1
+
+    movf	x8_16_1, W
+    addwf	temp2, 1, 0
+    movff	temp2, x16_16_2
+
+    movf	x8_16_2, W
+    addwfc	temp3, 1, 0
+    movff	temp3, x16_16_3
+
+    movlw	0x00
+    addwfc	x8_16_3, 1, 0
+    movff	x8_16_3, x16_16_4
+
+    return
+
+x24_by_8
+    movf	N1, W
+    call	x8_by_16
+
+    movff	x8_16_1, x24_8_1
+    movff	x8_16_2, x24_8_2
+
+    movf	N1, W
+    mulwf	in3
+
+    movf	PRODL, W
+    addwf	x8_16_3, 1, 0
+    movff	x8_16_3, x24_8_3
+
+    movlw	0x00
+    addwfc	PRODH, 0, 0
+    movwf	x24_8_4
+
+    return
+
+hex_dec
+    movff	k1, in1
+    movff	k2, in2
+    movff	hx_1, N1
+    movff	hx_2, N2
+
+    call	x16_by_16
+    movff	x16_16_4, dec_4
+
+    movlw	0x0A
+    movwf	N1
+
+    movff	x16_16_3, in3
+    movff	x16_16_2, in2
+    movff	x16_16_1, in1
+
+    call	x24_by_8
+    movff	x24_8_4, dec_3
+
+    movff	x24_8_3, in3
+    movff	x24_8_2, in2
+    movff	x24_8_1, in1
+
+    call	x24_by_8
+    movff	x24_8_4, dec_2
+
+    movff	x24_8_3, in3
+    movff	x24_8_2, in2
+    movff	x24_8_1, in1
+
+    call	x24_by_8
+    movff	x24_8_4, dec_1
+
+    return
+
+LCD_dec
+    movlw	0x30
+    addwf	dec_4, 0, 0
+    call	LCD_Send_Byte_D
+    movlw	0x30
+    addwf	dec_3, 0, 0
+    call	LCD_Send_Byte_D
+    movlw	0x30
+    addwf	dec_2, 0, 0
+    call	LCD_Send_Byte_D
+    movlw	0x30
+    addwf	dec_1, 0, 0
+    call	LCD_Send_Byte_D
+
     return
 
     end
